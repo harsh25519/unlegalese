@@ -125,6 +125,7 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
         formatted_history = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history[-4:]])  # Last 2 turns
 
     # 4. SYSTEM PROMPT WITH CHAT HISTORY
+    # 4. SYSTEM PROMPT WITH DOCUMENT TYPE CHECK
     system_prompt = """
     You are UnLegalese, an expert AI legal assistant specializing in Indian Law.
     Analyze the provided document clauses, statutory references, and ongoing conversation history to answer the user's request.
@@ -139,10 +140,14 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
     {statute_context}
 
     --- INSTRUCTIONS ---
-    1. If the user asks to draft a response, legal reply, or action item based on prior turns, use the conversation history context directly.
-    2. Explicitly cite specific statutory sections (e.g., BNS, Contract Act) retrieved from the statutory references when explaining legal remedies or cross-cases.
-    3. Quote or reference specific document clauses when applicable.
-    4. Maintain an objective, calm, and professional legal tone.
+    1. **DOCUMENT TYPE CHECK:** First, determine if the uploaded document is a legal document (e.g., notice, contract, court order, act, summons, lease, terms of service).
+       - If the document is NON-LEGAL (e.g., a college syllabus, curriculum, technical report, resume, or recipe), explicitly state that the uploaded document is not a legal document. Summarize what it actually is in 2-3 sentences and state that legal/statutory analysis does not apply.
+       - DO NOT invent or force-fit legal claims, statutory penalties, or legal risks onto non-legal text.
+    2. If it IS a legal document:
+       - Cite specific statutory sections (e.g., BNS, Contract Act) retrieved from the statutory reference context when explaining legal remedies or cross-cases.
+       - Quote or reference specific document clauses when applicable.
+       - If the user asks to draft a response or legal reply based on prior turns, use the conversation history context directly.
+    3. Maintain an objective, calm, and professional tone.
     """
 
     primary_prompt = ChatPromptTemplate.from_messages([
