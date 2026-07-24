@@ -183,9 +183,9 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
     {draft_response}
 
     --- INSTRUCTIONS ---
-    - Verify that draft legal notices, remedies, or summaries are factual and grounded in context.
-    - Check if cited sections match the statutory reference context.
-    - If valid, return it EXACTLY as-is.
+    - Ensure non-legal documents (e.g., college curricula, syllabi, software docs) are NOT assigned fake statutory violations or legal risk clauses.
+    - For actual legal notices/contracts, verify that cited sections match the statutory reference context.
+    - If the draft correctly flags the document as non-legal or accurately summarizes a legal document, return it as-is.
     - Return ONLY the finalized, verified text response.
     """
 
