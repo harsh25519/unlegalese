@@ -4,6 +4,18 @@
 
 UnLegalese is an AI-powered Retrieval-Augmented Generation (RAG) platform engineered to parse, summarize, and explain complex legal notices and contracts under Indian Law. Built with Streamlit, ChromaDB, and Google Gemini, it pairs document clause analysis with relevant statutory provisions—such as the *Bharatiya Nyaya Sanhita (BNS)*, *Consumer Protection Act*, and *Indian Contract Act*—to provide verified, plain-English legal breakdowns.
 
+- [Live API](https://unlegalese.streamlit.app/)
+
+---
+
+## Tech Stack
+
+* **Frontend**: Streamlit
+* **Core Languages**: Python
+* **Parsing & OCR**: PyMuPDF, tesseract
+* **Vector Search & Indexing**: Chroma DB
+* **NLP & Reranking**: Sentence Transformers (Embedding & Cross-Encoder)
+
 ---
 
 ## 🌟 Key Features
@@ -12,6 +24,7 @@ UnLegalese is an AI-powered Retrieval-Augmented Generation (RAG) platform engine
 * **🔍 Dual-Collection MMR Retrieval:** Employs Max Marginal Relevance (MMR) search across two isolated vector databases:
   1. **User Document Store:** Query-scoped vector search filtered strictly by document UUID (`doc_id`).
   2. **Statutory Reference Store:** Pre-populated collection of Indian statutory laws.
+* **🔍Hybrid Retrieval Pipeline**: Combines dense semantic search (ChromaticDb) with exact keyword matching (BM25) using Reciprocal Rank Fusion (RRF) for highly accurate document retrieval.
 * **🔄 Legal Query Translation (Sub-Query Rewriter):** Automatically translates informal user questions (*"Can I sue them back?"*) into formal Indian legal terms (*"criminal intimidation BNS 351 extortion defamation"*) to ensure precise statutory section retrieval.
 * **🛡️ Anti-Hallucination Guardrail:** A two-stage LLM verification chain audits every output against retrieved context before displaying it to the user.
 * **💬 Conversational Memory:** Full multi-turn chat interface via `st.chat_message` allowing users to request draft reply notices or follow-up legal strategies based on previous context.
