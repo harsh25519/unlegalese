@@ -10,3 +10,4 @@ pymupdf
 pytesseract
 pillow
 python-dotenv
+torchvision
