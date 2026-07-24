@@ -1,4 +1,8 @@
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 import uuid
 import streamlit as st
 from src.loader import process_and_chunk_user_doc

@@ -68,3 +68,30 @@ UnLegalese is an AI-powered Retrieval-Augmented Generation (RAG) platform engine
                                  │
                                  ▼
                       [ Streamlit Chat UI ]
+
+```
+
+ **File Structure 
+ ```
+Projects\unlegalese
+├── data/
+├── images/
+│   └── UnLegalese.png
+├── src/
+│   ├── __init__.py
+│   ├── db_setup.py
+│   ├── loader.py
+│   ├── models.py
+│   ├── parser.py
+│   └── rag_chain.py
+├── .env
+├── .gitignore
+├── app.py
+├── dockerfile
+├── ingest_statutes.py
+├── LICENSE
+├── packages.txt
+├── README.md
+└── requirements.txt
+
+```
