@@ -7,7 +7,6 @@ from src.db_setup import initialize_statutory_db
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 load_dotenv()
 
-# Master registry of statutory PDFs in data/statutes
 STATUTORY_CONFIGS = [
     {
         "path": "data/statutes/BNS_2023.pdf",

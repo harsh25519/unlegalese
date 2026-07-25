@@ -25,7 +25,8 @@ def get_llm():
     return ChatGoogleGenerativeAI(
         model="gemini-3.5-flash-lite",
         max_retries=3,
-        temperature=0.2
+        temperature=0.2,
+        thinking = "low"
     )
 
 def generate_statutory_search_query(user_query: str, chat_history: list = None) -> str:
@@ -74,10 +75,8 @@ def store_user_doc_embeddings(chunks: list, doc_id: str):
         persist_directory=CHROMA_PATH
     )
     
-    # Generate unique chunk IDs (e.g., DOC123_chunk_0, DOC123_chunk_1)
     chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
     
-    # Add non-empty documents safely
     user_db.add_documents(documents=chunks, ids=chunk_ids)
     logging.info(f"✅ Stored {len(chunks)} chunks under doc_id: {doc_id}")
 
@@ -92,7 +91,6 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
     logging.info(f"🔎 Querying dual collections via MMR for doc_id: {doc_id}")
     embeddings = get_embedding_function()
 
-    # 1. RETRIEVE CLAUSES VIA MMR (User Document)
     user_db = Chroma(
         collection_name=USER_DOCS_COLLECTION,
         embedding_function=embeddings,
@@ -103,7 +101,6 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
     )
     user_doc_context = "\n\n".join([f"[Clause/Chunk {d.metadata.get('chunk_index', '?')}]: {d.page_content}" for d in user_docs])
 
-    # 2. RETRIEVE STATUTES VIA MMR (Using Formal Legal Query Rewriter)
     statutory_search_terms = generate_statutory_search_query(user_query, chat_history)
 
     statutory_db = Chroma(
@@ -111,6 +108,7 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
         embedding_function=embeddings,
         persist_directory=CHROMA_PATH
     )
+    
     statute_docs = statutory_db.max_marginal_relevance_search(
         statutory_search_terms, 
         k=4, 
@@ -119,13 +117,10 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
     )
     statute_context = "\n\n".join([f"[{d.metadata.get('act', 'Statute')} Sec {d.metadata.get('section', '')}]: {d.page_content}" for d in statute_docs])
 
-    # 3. CONVERT CHAT HISTORY TO STRING CONTEXT
     formatted_history = ""
     if chat_history:
-        formatted_history = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history[-4:]])  # Last 2 turns
+        formatted_history = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in chat_history[-4:]])
 
-    # 4. SYSTEM PROMPT WITH CHAT HISTORY
-    # 4. SYSTEM PROMPT WITH DOCUMENT TYPE CHECK
     system_prompt = """
     You are UnLegalese, an expert AI legal assistant specializing in Indian Law.
     Analyze the provided document clauses, statutory references, and ongoing conversation history to answer the user's request.
@@ -141,7 +136,7 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
 
     --- INSTRUCTIONS ---
     1. **DOCUMENT TYPE CHECK:** First, determine if the uploaded document is a legal document (e.g., notice, contract, court order, act, summons, lease, terms of service).
-       - If the document is NON-LEGAL (e.g., a college syllabus, curriculum, technical report, resume, or recipe), explicitly state that the uploaded document is not a legal document. Summarize what it actually is in 2-3 sentences and state that legal/statutory analysis does not apply.
+       - If the document is NON-LEGAL (e.g., a college syllabus, curriculum, technical report, resume, or recipe), explicitly state that the uploaded document is not a legal document. Just state that legal/statutory analysis does not apply as the uploaded document is not a legal document.
        - DO NOT invent or force-fit legal claims, statutory penalties, or legal risks onto non-legal text.
     2. If it IS a legal document:
        - Cite specific statutory sections (e.g., BNS, Contract Act) retrieved from the statutory reference context when explaining legal remedies or cross-cases.
@@ -165,7 +160,6 @@ def query_unlegalese(doc_id: str, user_query: str, chat_history: list = None):
         "question": user_query
     })
 
-    # 5. GUARDRAIL VERIFICATION
     guardrail_prompt = """
     You are a strict Legal Compliance & Anti-Hallucination Auditor.
     Review the Draft AI Response against the Source Statutory Context, User Document Context, and Conversation History.
@@ -211,8 +205,23 @@ def delete_user_doc_embeddings(doc_id: str):
             embedding_function=embeddings,
             persist_directory=CHROMA_PATH
         )
-        # Delete documents matching the doc_id filter
+        
         user_db.delete(where={"doc_id": doc_id})
         logging.info(f"🧹 Successfully purged ChromaDB embeddings for doc_id: {doc_id}")
     except Exception as e:
         logging.error(f"Failed to delete ChromaDB embeddings for doc_id {doc_id}: {e}")
+        
+        
+def purge_all_user_docs():
+    """Deletes all temporary user document embeddings from ChromaDB on startup."""
+    try:
+        embeddings = get_embedding_function()
+        user_db = Chroma(
+            collection_name=USER_DOCS_COLLECTION,
+            embedding_function=embeddings,
+            persist_directory=CHROMA_PATH
+        )
+        user_db.delete(where={"doc_type": "user_doc"})
+        logging.info("🧹 Purged all temporary user embeddings on app startup.")
+    except Exception as e:
+        logging.warning(f"Startup purge skipped: {e}")

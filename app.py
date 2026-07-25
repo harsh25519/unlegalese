@@ -2,20 +2,23 @@ import os
 import sys
 import urllib.parse
 
-# Ensure project root is in sys.path for Streamlit Cloud
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import uuid
 import streamlit as st
 from src.loader import process_and_chunk_user_doc
 from src.rag_chain import store_user_doc_embeddings, query_unlegalese, delete_user_doc_embeddings
+from src.rag_chain import purge_all_user_docs
 
 st.set_page_config(page_title="UnLegalese - Legal Notice Decoder", page_icon="⚖️", layout="wide")
+
+if "initialized" not in st.session_state:
+    purge_all_user_docs()
+    st.session_state.initialized = True
 
 st.title("⚖️ UnLegalese")
 st.subheader("Demystifying Complex Legal Documents into Plain English")
 
-# Initialize Chat & Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "active_doc_id" not in st.session_state:
@@ -23,7 +26,6 @@ if "active_doc_id" not in st.session_state:
 if "uploaded_filename" not in st.session_state:
     st.session_state.uploaded_filename = None
 
-# Sidebar Upload
 with st.sidebar:
     st.header("📄 Upload Document")
     uploaded_file = st.file_uploader(
@@ -31,12 +33,9 @@ with st.sidebar:
         type=["pdf", "png", "jpg", "jpeg"]
     )
 
-    # File Ingestion & Purge Logic
     if uploaded_file and st.session_state.uploaded_filename != uploaded_file.name:
-        # Clean decoded filename (replaces %20 with actual spaces)
         clean_filename = urllib.parse.unquote(uploaded_file.name)
 
-        # Purge previous document vectors if switching files
         if st.session_state.active_doc_id:
             delete_user_doc_embeddings(st.session_state.active_doc_id)
             
@@ -52,16 +51,14 @@ with st.sidebar:
         with st.spinner("Indexing document vectors..."):
             chunks = process_and_chunk_user_doc(file_path, doc_id)
             
-            # Guard against empty text extraction before storing/querying
             if chunks and len(chunks) > 0:
                 store_user_doc_embeddings(chunks, doc_id)
                 st.session_state.active_doc_id = doc_id
                 st.session_state.uploaded_filename = uploaded_file.name
-                st.session_state.messages = []  # Clear chat history for new doc
+                st.session_state.messages = []
 
                 st.success(f"Indexed: **{clean_filename}**")
 
-                # Trigger initial summary prompt safely
                 initial_prompt = "Summarize this legal document, highlight potential risks/clauses, and suggest practical next steps."
                 analysis, statute_refs, user_clause_refs = query_unlegalese(
                     doc_id=doc_id, 
@@ -69,26 +66,22 @@ with st.sidebar:
                     chat_history=[]
                 )
                 st.session_state.messages.append({"role": "assistant", "content": analysis})
-                st.rerun()  # Force UI refresh to display initial summary immediately
+                st.rerun()
             else:
                 st.error("Failed to extract readable text from the uploaded file.")
 
-# Display Existing Chat Messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Chat Input Box
 if prompt := st.chat_input("Ask a question or request a draft reply based on this notice..."):
     if not st.session_state.active_doc_id:
         st.error("Please upload a legal document in the sidebar first!")
     else:
-        # Display user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Generate Assistant Response
         with st.chat_message("assistant"):
             with st.spinner("Analyzing document & conversation history..."):
                 analysis, statute_refs, user_clause_refs = query_unlegalese(
@@ -103,5 +96,4 @@ if prompt := st.chat_input("Ask a question or request a draft reply based on thi
                     st.write("**Matched Clauses:**", [f"Chunk #{c.metadata.get('chunk_index', '?')}: {c.page_content[:150]}..." for c in user_clause_refs])
                     st.write("**Matched Statutes:**", [f"[{d.metadata.get('act', 'Statute')} Sec {d.metadata.get('section', '')}]" for d in statute_refs])
 
-        # Save assistant message to history
         st.session_state.messages.append({"role": "assistant", "content": analysis})

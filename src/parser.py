@@ -13,7 +13,6 @@ def parse_statutory_text(raw_text: str, act_name: str, year: int, source_filenam
     """
     documents = []
     
-    # Regex matching "Section 316.", "Section 27:", etc.
     section_pattern = re.compile(
         r'((?:Section|Article|Clause|\b\d{1,3}\.)\s+.*?)(?=\n\s*(?:Section|Article|Clause|\b\d{1,3}\.)|\Z)', 
         re.DOTALL | re.IGNORECASE
@@ -25,11 +24,10 @@ def parse_statutory_text(raw_text: str, act_name: str, year: int, source_filenam
         logging.warning(f"No specific section headers matched in {source_filename}. Treating whole text as general.")
         matches = [raw_text]
 
-    # Sub-splitter for paragraphs if a section is huge (>1200 chars)
     sub_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=150,
-        separators=["\n\n", "\n", ". ", " ", ""]
+        separators=["\n\n", "\n", ". ", " "]
     )
 
     for match in matches:
@@ -37,7 +35,6 @@ def parse_statutory_text(raw_text: str, act_name: str, year: int, source_filenam
         sec_num_match = re.search(r'Section\s+(\d+[A-Z]?)', content, re.IGNORECASE)
         sec_number = sec_num_match.group(1) if sec_num_match else "General"
         
-        # If the Section is normal size, create one LegalDocument
         if len(content) <= 1200:
             doc = LegalDocument(
                 act=act_name,
@@ -50,13 +47,12 @@ def parse_statutory_text(raw_text: str, act_name: str, year: int, source_filenam
             )
             documents.append(doc)
         else:
-            # If paragraph/section is huge, break it into sub-chunks while keeping section metadata
             sub_chunks = sub_splitter.split_text(content)
             for idx, chunk in enumerate(sub_chunks):
                 doc = LegalDocument(
                     act=act_name,
                     year=year,
-                    section=f"{sec_number}_p{idx+1}", # e.g. Section 316_p1, 316_p2
+                    section=f"{sec_number}_p{idx+1}",
                     chapter="General",
                     content=chunk,
                     source=source_filename,

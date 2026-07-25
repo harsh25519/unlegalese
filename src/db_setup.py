@@ -68,7 +68,7 @@ def initialize_statutory_db(file_configs: list[dict]):
     total_chunks = len(all_lc_docs)
     logging.info(f"⚡ Upserting {total_chunks} sections into ChromaDB [{STATUTORY_COLLECTION}] in batches...")
     
-    # Deduplicate IDs in list if any collisions occur
+    # Deduplicating IDs in list if any collisions occur
     seen_ids = set()
     unique_ids = []
     for doc_id in all_ids:
@@ -80,27 +80,24 @@ def initialize_statutory_db(file_configs: list[dict]):
         seen_ids.add(final_id)
         unique_ids.append(final_id)
 
-    # Use unique_ids instead of all_ids in batch processing loop
     
-    # Batch processing (100 docs per batch to stay safely within API limits)
+    # Batch processing (30 docs per batch to stay safely within API limits)
     BATCH_SIZE = 30
     for i in range(0, total_chunks, BATCH_SIZE):
         batch_docs = all_lc_docs[i : i + BATCH_SIZE]
         batch_ids = unique_ids[i : i + BATCH_SIZE]
         
-        # Retry loop for rate limits (429)
         max_retries = 5
         for attempt in range(max_retries):
             try:
                 vector_store.add_documents(documents=batch_docs, ids=batch_ids)
                 logging.info(f"  └─ Batch {i // BATCH_SIZE + 1} / {(total_chunks + BATCH_SIZE - 1) // BATCH_SIZE} complete ({len(batch_docs)} docs)")
                 
-                # Pace requests to respect Gemini's 100 requests/min free tier rate limit
                 time.sleep(2) 
                 break
             except Exception as e:
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    wait_time = (attempt + 1) * 15  # Exponential backoff (15s, 30s, 45s...)
+                    wait_time = (attempt + 1) * 15
                     logging.warning(f"⚠️ Rate limit hit. Waiting {wait_time}s before retrying batch {i // BATCH_SIZE + 1}...")
                     time.sleep(wait_time)
                 else:

@@ -15,16 +15,13 @@ class LegalDocument:
     stable_id: str = field(init=False)
 
     def __post_init__(self):
-        # Calculate SHA256 Hash for deduplication and unique identification
         hasher = hashlib.sha256()
         hasher.update(self.content.encode('utf-8'))
         self.doc_hash = hasher.hexdigest()
         
-        # Format stable ID
         act_prefix = "".join([word[0] for word in self.act.split()]).upper()
         clean_section = self.section.replace(" ", "")
         
-        # FIX: If section is "General" or blank, append the hash slice to guarantee uniqueness!
         if not clean_section or clean_section.lower() == "general":
             self.stable_id = f"{act_prefix}-GEN-{self.doc_hash[:8]}"
         else:

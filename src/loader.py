@@ -10,7 +10,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-# Windows Tesseract Executable Fallback
 if os.name == 'nt':
     win_tesseract = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
     if os.path.exists(win_tesseract):
@@ -24,21 +23,16 @@ def run_enhanced_ocr(pil_img: Image.Image) -> str:
     - Retries with inverted colors if initial pass fails (handles Dark Mode text).
     """
     try:
-        # Convert RGBA / Palette mode images to standard RGB
         if pil_img.mode in ("RGBA", "P"):
             pil_img = pil_img.convert("RGB")
 
-        # Convert to Grayscale
         gray_img = ImageOps.grayscale(pil_img)
 
-        # Enhance Contrast for low-DPI screenshots
         enhancer = ImageEnhance.Contrast(gray_img)
         enhanced_img = enhancer.enhance(2.0)
 
-        # Pass 1: Standard Grayscale OCR
         text = pytesseract.image_to_string(enhanced_img, lang="eng", config="--psm 6").strip()
 
-        # Pass 2: Dark Mode Inversion Fallback (if Pass 1 extracted under 10 chars)
         if not text or len(text) < 10:
             inverted_img = ImageOps.invert(gray_img)
             text = pytesseract.image_to_string(inverted_img, lang="eng", config="--psm 6").strip()
@@ -60,11 +54,9 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         page = doc[page_num]
         text = page.get_text("text").strip()
 
-        # If page contains healthy digital text, use it directly
         if len(text) > 30:
             full_text.append(text)
         else:
-            # Otherwise render page to 300 DPI image and run OCR
             try:
                 pix = page.get_pixmap(dpi=300)
                 img = Image.open(io.BytesIO(pix.tobytes("png")))
@@ -98,7 +90,6 @@ def process_and_chunk_user_doc(file_path: str, doc_id: str):
     elif ext == "pdf":
         raw_text = extract_text_from_pdf(file_path).strip()
 
-    # Safety Guard: Fallback text if OCR or text extraction failed completely
     if not raw_text:
         logging.warning("⚠️ Text extraction returned empty content. Inserting fallback placeholder.")
         raw_text = f"Document uploaded from file {file_name}. Could not automatically extract text."
@@ -111,15 +102,13 @@ def process_and_chunk_user_doc(file_path: str, doc_id: str):
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=800,
         chunk_overlap=150,
-        separators=["\n\n", "\n", " ", ""]
+        separators=["\n\n", "\n", " "]
     )
     chunks = splitter.split_documents([doc])
 
-    # Ensure chunks list is never empty
     if not chunks:
         chunks = [doc]
 
-    # Tag individual chunks with sequence indices and doc_id
     for idx, chunk in enumerate(chunks):
         chunk.metadata["chunk_index"] = idx
         chunk.metadata["doc_id"] = doc_id
@@ -127,7 +116,6 @@ def process_and_chunk_user_doc(file_path: str, doc_id: str):
 
     logging.info(f"✅ Generated {len(chunks)} chunks for UUID: {doc_id}")
     
-    # Clean up temporary staging PDF/Image file immediately
     if os.path.exists(file_path):
         try:
             os.remove(file_path)
